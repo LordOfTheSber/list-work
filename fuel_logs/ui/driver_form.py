@@ -1,5 +1,7 @@
 from tkinter import ttk, messagebox
 
+from .validators import validate_fio
+
 
 class DriverForm(ttk.Frame):
     def __init__(self, master, db, refresh_callbacks=()):
@@ -10,7 +12,7 @@ class DriverForm(ttk.Frame):
         self.load()
 
     def _build(self):
-        top = ttk.Frame(self)
+        top = ttk.LabelFrame(self, text="Справочник водителей")
         top.pack(fill="x", padx=8, pady=8)
         ttk.Label(top, text="ФИО:").pack(side="left")
         self.full_name = ttk.Entry(top, width=45)
@@ -32,7 +34,9 @@ class DriverForm(ttk.Frame):
     def add(self):
         name = self.full_name.get().strip()
         if not name:
+            messagebox.showwarning("Внимание", "Введите ФИО")
             return
+        name = validate_fio(name)
         try:
             self.db.query("INSERT INTO drivers(full_name) VALUES (?)", (name,))
             self.full_name.delete(0, "end")

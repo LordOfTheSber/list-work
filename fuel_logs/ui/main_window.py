@@ -11,7 +11,14 @@ class MainWindow(tk.Tk):
     def __init__(self, db, photos_dir):
         super().__init__()
         self.title("Учёт путевых листов")
-        self.geometry("1400x900")
+        self.geometry("1440x920")
+        self.configure(bg="#f3f5f8")
+        style = ttk.Style(self)
+        style.theme_use("clam")
+        style.configure("TNotebook", background="#f3f5f8", borderwidth=0)
+        style.configure("TNotebook.Tab", padding=(18, 10), font=("Segoe UI", 10, "bold"))
+        style.configure("Treeview", rowheight=28)
+        style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"))
 
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True)

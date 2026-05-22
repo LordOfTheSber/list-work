@@ -6,7 +6,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from PIL import Image, ImageTk
 
-from .validators import parse_date_ru, parse_float_ru
+from .validators import parse_date_ru_to_db, format_date_db_to_ru, parse_float_ru
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".pdf"}
 
@@ -23,6 +23,37 @@ class TripForm(ttk.Frame):
         self.refresh_lookups()
         self.load()
 
+    def _set_today(self, entry: ttk.Entry):
+        entry.delete(0, "end")
+        entry.insert(0, datetime.now().strftime("%d.%m.%Y"))
+
+    def _open_date_picker(self, entry: ttk.Entry):
+        win = tk.Toplevel(self)
+        win.title("Выбор даты")
+        win.resizable(False, False)
+        ttk.Label(win, text="День").grid(row=0, column=0, padx=4, pady=4)
+        ttk.Label(win, text="Месяц").grid(row=0, column=1, padx=4, pady=4)
+        ttk.Label(win, text="Год").grid(row=0, column=2, padx=4, pady=4)
+        now = datetime.now()
+        d = tk.IntVar(value=now.day)
+        m = tk.IntVar(value=now.month)
+        y = tk.IntVar(value=now.year)
+        ttk.Spinbox(win, from_=1, to=31, width=5, textvariable=d).grid(row=1, column=0, padx=4, pady=4)
+        ttk.Spinbox(win, from_=1, to=12, width=5, textvariable=m).grid(row=1, column=1, padx=4, pady=4)
+        ttk.Spinbox(win, from_=2000, to=2100, width=7, textvariable=y).grid(row=1, column=2, padx=4, pady=4)
+
+        def apply_date():
+            try:
+                dt = datetime(year=y.get(), month=m.get(), day=d.get())
+            except ValueError:
+                messagebox.showerror("Ошибка", "Некорректная дата")
+                return
+            entry.delete(0, "end")
+            entry.insert(0, dt.strftime("%d.%m.%Y"))
+            win.destroy()
+
+        ttk.Button(win, text="Выбрать", command=apply_date).grid(row=2, column=0, columnspan=3, pady=8)
+
     def _build(self):
         f = ttk.LabelFrame(self, text="Новый путевой лист")
         f.pack(fill="x", padx=12, pady=12)
@@ -37,6 +68,11 @@ class TripForm(ttk.Frame):
             e = ttk.Entry(f, width=15)
             e.grid(row=1, column=col, padx=3, pady=3)
             self.fields[txt] = e
+
+        ttk.Button(f, text="📅", width=3, command=lambda: self._open_date_picker(self.fields["Дата выезда"])).grid(row=1, column=8)
+        ttk.Button(f, text="📅", width=3, command=lambda: self._open_date_picker(self.fields["Дата возврата"])).grid(row=1, column=9)
+        self._set_today(self.fields["Дата выезда"])
+        self._set_today(self.fields["Дата возврата"])
 
         ttk.Label(f, text="Водитель").grid(row=2, column=0, sticky="w")
         self.driver_cb = ttk.Combobox(f, state="readonly", width=25)
@@ -62,12 +98,25 @@ class TripForm(ttk.Frame):
         self.search_var.trace_add("write", lambda *_: self.load())
         ttk.Entry(search, textvariable=self.search_var, width=45).pack(side="left", padx=5)
 
+        table_wrap = ttk.Frame(self)
+        table_wrap.pack(fill="both", expand=True, padx=12, pady=8)
         cols = ("id", "num", "dates", "driver", "vehicle", "odo", "fuel", "photos")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        self.tree = ttk.Treeview(table_wrap, columns=cols, show="headings", height=12)
         names = ["ID", "Номер", "Период", "Водитель", "Гос.номер", "Пробег", "Факт. расход", "Файлов"]
-        for c, n in zip(cols, names):
+        widths = [70, 120, 200, 220, 130, 100, 120, 90]
+        for c, n, w in zip(cols, names, widths):
             self.tree.heading(c, text=n)
-        self.tree.pack(fill="both", expand=True, padx=12, pady=8)
+            self.tree.column(c, width=w, minwidth=70, anchor="center")
+
+        y_scroll = ttk.Scrollbar(table_wrap, orient="vertical", command=self.tree.yview)
+        x_scroll = ttk.Scrollbar(table_wrap, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+        table_wrap.columnconfigure(0, weight=1)
+        table_wrap.rowconfigure(0, weight=1)
 
         btns = ttk.Frame(self)
         btns.pack(fill="x", padx=12, pady=5)
@@ -81,8 +130,8 @@ class TripForm(ttk.Frame):
         self.vehicle_cb["values"] = list(self.vehicle_map.keys())
 
     def _validated_trip_data(self):
-        start = parse_date_ru(self.fields["Дата выезда"].get(), "Дата выезда")
-        end = parse_date_ru(self.fields["Дата возврата"].get(), "Дата возврата")
+        start = parse_date_ru_to_db(self.fields["Дата выезда"].get(), "Дата выезда")
+        end = parse_date_ru_to_db(self.fields["Дата возврата"].get(), "Дата возврата")
         if end < start:
             raise ValueError("Дата возврата не может быть раньше даты выезда")
         odo_s = parse_float_ru(self.fields["Одометр нач."].get(), "Одометр нач.")
@@ -138,7 +187,8 @@ class TripForm(ttk.Frame):
             messagebox.showerror("Ошибка", str(e))
 
     def load(self):
-        for i in self.tree.get_children(): self.tree.delete(i)
+        for i in self.tree.get_children():
+            self.tree.delete(i)
         q = self.search_var.get().strip()
         rows = self.db.fetchall("""
             SELECT t.*, d.full_name, v.plate_number,
@@ -152,17 +202,20 @@ class TripForm(ttk.Frame):
             ORDER BY t.start_date DESC
         """, (q, q, q, q))
         for r in rows:
-            self.tree.insert("", "end", values=(r["id"], r["trip_number"], f"{r['start_date']} - {r['end_date']}", r["full_name"], r["plate_number"], round(r["mileage"], 2), round(r["fact"], 2), r["photos_count"]))
+            period = f"{format_date_db_to_ru(r['start_date'])} - {format_date_db_to_ru(r['end_date'])}"
+            self.tree.insert("", "end", values=(r["id"], r["trip_number"], period, r["full_name"], r["plate_number"], round(r["mileage"], 2), round(r["fact"], 2), r["photos_count"]))
 
     def delete(self):
         sel = self.tree.selection()
-        if not sel: return
+        if not sel:
+            return
         self.db.query("DELETE FROM trip_logs WHERE id=?", (self.tree.item(sel[0])["values"][0],))
         self.load()
 
     def open_photo(self):
         sel = self.tree.selection()
-        if not sel: return
+        if not sel:
+            return
         trip_id = self.tree.item(sel[0])["values"][0]
         row = self.db.fetchone("SELECT file_path FROM trip_photos WHERE trip_id=? ORDER BY id DESC LIMIT 1", (trip_id,))
         if not row:

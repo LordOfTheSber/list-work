@@ -1,18 +1,26 @@
 import re
 from datetime import datetime
 
-DATE_FMT = "%Y-%m-%d"
+DATE_FMT_RU = "%d.%m.%Y"
+DATE_FMT_DB = "%Y-%m-%d"
 PLATE_RE = re.compile(r"^[АВЕКМНОРСТУХABEKMHOPCTYX]\d{3}[АВЕКМНОРСТУХABEKMHOPCTYX]{2}\d{2,3}$", re.IGNORECASE)
 FIO_RE = re.compile(r"^[А-Яа-яЁёA-Za-z\-\s]{5,120}$")
 
 
-def parse_date_ru(value: str, field_name: str) -> str:
+def parse_date_ru_to_db(value: str, field_name: str) -> str:
     value = value.strip()
     try:
-        datetime.strptime(value, DATE_FMT)
-    except ValueError:
-        raise ValueError(f"Поле «{field_name}» должно быть в формате YYYY-MM-DD, например 2026-05-22")
-    return value
+        dt = datetime.strptime(value, DATE_FMT_RU)
+    except ValueError as e:
+        raise ValueError(f"Поле «{field_name}» должно быть в формате ДД.ММ.ГГГГ, например 11.11.2000") from e
+    return dt.strftime(DATE_FMT_DB)
+
+
+def format_date_db_to_ru(value: str) -> str:
+    try:
+        return datetime.strptime(value, DATE_FMT_DB).strftime(DATE_FMT_RU)
+    except Exception:
+        return value
 
 
 def parse_float_ru(value: str, field_name: str, min_value: float | None = 0) -> float:

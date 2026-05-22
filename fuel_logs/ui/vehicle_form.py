@@ -1,5 +1,7 @@
 from tkinter import ttk, messagebox
 
+from .validators import validate_plate, parse_float_ru
+
 
 class VehicleForm(ttk.Frame):
     def __init__(self, master, db, refresh_callbacks=()):
@@ -10,7 +12,7 @@ class VehicleForm(ttk.Frame):
         self.load()
 
     def _build(self):
-        form = ttk.Frame(self)
+        form = ttk.LabelFrame(self, text="Карточка ТС")
         form.pack(fill="x", padx=8, pady=8)
         labels = ["Марка", "Модель", "Гос. номер", "Норма (л/100км)", "Тип топлива"]
         self.entries = {}
@@ -50,8 +52,8 @@ class VehicleForm(ttk.Frame):
                 (
                     self.entries["Марка"].get().strip(),
                     self.entries["Модель"].get().strip(),
-                    self.entries["Гос. номер"].get().strip(),
-                    float(self.entries["Норма (л/100км)"].get().strip()),
+                    validate_plate(self.entries["Гос. номер"].get()),
+                    parse_float_ru(self.entries["Норма (л/100км)"].get(), "Норма (л/100км)", min_value=0.1),
                     self.entries["Тип топлива"].get().strip(),
                 ),
             )

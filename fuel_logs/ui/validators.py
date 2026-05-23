@@ -3,7 +3,11 @@ from datetime import datetime
 
 DATE_FMT_RU = "%d.%m.%Y"
 DATE_FMT_DB = "%Y-%m-%d"
-PLATE_RE = re.compile(r"^[АВЕКМНОРСТУХABEKMHOPCTYX]\d{3}[АВЕКМНОРСТУХABEKMHOPCTYX]{2}\d{2,3}$", re.IGNORECASE)
+
+# Новый формат: 4 цифры, 2 буквы, 2 цифры (например: 1111рк11)
+# Буквы: только русские АВЕКМНОРСТУХ или их латинские аналоги
+PLATE_RE = re.compile(r"^\d{4}[АВЕКМНОРСТУХABEKMHOPCTYX]{2}\d{2}$", re.IGNORECASE)
+
 FIO_RE = re.compile(r"^[А-Яа-яЁёA-Za-z\-\s]{5,120}$")
 
 
@@ -38,9 +42,17 @@ def parse_float_ru(value: str, field_name: str, min_value: float | None = 0) -> 
 
 def validate_plate(value: str) -> str:
     plate = value.strip().replace(" ", "").upper()
-    if not PLATE_RE.match(plate):
-        raise ValueError("Гос. номер должен быть в формате А123ВС77 (или с латинскими аналогами букв)")
-    return plate
+    # Преобразуем латинские буквы в русские для единообразия
+    latin_to_russian = {
+        'A': 'А', 'B': 'В', 'E': 'Е', 'K': 'К', 'M': 'М', 
+        'H': 'Н', 'O': 'О', 'P': 'Р', 'C': 'С', 'T': 'Т', 
+        'Y': 'У', 'X': 'Х'
+    }
+    converted = ''.join(latin_to_russian.get(c, c) for c in plate)
+    
+    if not PLATE_RE.match(converted):
+        raise ValueError("Гос. номер должен быть в формате: 4 цифры, 2 буквы, 2 цифры (например: 1111рк11)")
+    return converted
 
 
 def validate_fio(value: str) -> str:

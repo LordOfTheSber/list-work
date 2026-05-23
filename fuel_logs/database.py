@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import atexit
 from typing import Iterable
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
@@ -10,6 +11,8 @@ class Database:
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
         self.init_db()
+        # Регистрируем автосохранение при завершении
+        atexit.register(self.close)
 
     def init_db(self):
         cur = self.conn.cursor()
@@ -69,4 +72,6 @@ class Database:
         return self.query(sql, params).fetchone()
 
     def close(self):
-        self.conn.close()
+        if self.conn:
+            self.conn.commit()  # Сохраняем все изменения
+            self.conn.close()
